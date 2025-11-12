@@ -20,9 +20,9 @@ type Storage struct {
 func New(dbPath string) (*Storage, error) {
 	// 如果没有指定路径，使用默认路径
 	if dbPath == "" {
-		home, err := os.UserHomeDir()
+		home, err := os.Getwd()
 		if err != nil {
-			return nil, fmt.Errorf("failed to get home directory: %w", err)
+			return nil, fmt.Errorf("failed to get current directory: %w", err)
 		}
 		dbPath = filepath.Join(home, ".todolist.db")
 	}
