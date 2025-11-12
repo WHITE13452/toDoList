@@ -1,75 +1,74 @@
 package main
 
 import (
-	"bufio"
-	"fmt"
-	"os"
-	"strconv"
-	"strings"
+    "bufio"
+    "fmt"
+    "os"
+    "strconv"
+    "strings"
 
-	"github.com/WHITE13452/toDoList/internal/cli"
-	"github.com/spf13/cobra"
+    "github.com/WHITE13452/toDoList/internal/cli"
+    "github.com/spf13/cobra"
 )
 
 var skipConfirm bool
 
 var deleteCmd = &cobra.Command{
-	Use:   "delete [task_id]",
-	Short: "删除任务",
-	Long:  "删除指定的待办事项。可以使用任务ID或关键词搜索。默认需要确认,使用 -y 参数跳过确认。",
-	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
-		input := args[0]
+    Use:   "delete [task_id_or_keyword]",
+    Short: "删除任务",
+    Long:  "删除指定的待办事项。可以使用任务ID或关键词搜索。默认需要确认,使用 -y 参数跳过确认。",
+    Args:  cobra.ExactArgs(1),
+    Run: func(cmd *cobra.Command, args []string) {
+        input := args[0]
 
-		// 尝试将输入解析为任务ID
-		taskID, err := strconv.ParseInt(input, 10, 64)
-		if err == nil {
-			// 按 ID 删除
+        // 尝试将输入解析为任务ID
+        taskID, err := strconv.ParseInt(input, 10, 64)
+        if err == nil {
+            // 按 ID 删除
             deleteByID(taskID)
             return
-		}
+        }
 
-		// 按关键词搜索并删除
+        // 按关键词搜索并删除
         deleteByKeyword(input)
-	},
+    },
 }
 
 // deleteByID 根据任务ID删除任务
 func deleteByID(taskID int64) {
-	task, err := store.GetTask(taskID)
-	if err != nil {
-		cli.PrintError("获取任务失败: %v", err)
-		return
-	}
-	if task == nil {
-		cli.PrintError("任务 %d 不存在", taskID)
-		return
-	}
+    task, err := store.GetTask(taskID)
+    if err != nil {
+        cli.PrintError("获取任务失败: %v", err)
+        return
+    }
+    if task == nil {
+        cli.PrintError("任务 %d 不存在", taskID)
+        return
+    }
 
-	if !skipConfirm {
-		cli.PrintTask(task, false)
-		fmt.Printf("\n确定要删除任务 %d 吗？(y/N): ", taskID)
-		reader := bufio.NewReader(os.Stdin)
-		response, _ := reader.ReadString('\n')
-		response = strings.TrimSpace(strings.ToLower(response))
-		if response != "y" && response != "yes" {
-			fmt.Println("已取消")
-			return
-		}
-	}
+    if !skipConfirm {
+        cli.PrintTask(task, false)
+        fmt.Printf("\n确定要删除任务 %d 吗？(y/N): ", taskID)
+        reader := bufio.NewReader(os.Stdin)
+        response, _ := reader.ReadString('\n')
+        response = strings.TrimSpace(strings.ToLower(response))
+        if response != "y" && response != "yes" {
+            fmt.Println("已取消")
+            return
+        }
+    }
 
-	if err := store.DeleteTask(taskID); err != nil {
-		cli.PrintError("删除任务失败: %v", err)
-		return
-	}
+    if err := store.DeleteTask(taskID); err != nil {
+        cli.PrintError("删除任务失败: %v", err)
+        return
+    }
 
-	cli.PrintSuccess("任务 %d 已删除", taskID)
+    cli.PrintSuccess("任务 %d 已删除", taskID)
 }
-
 
 // deleteByKeyword 按关键词搜索并删除任务
 func deleteByKeyword(keyword string) {
-	// 搜索任务
+    // 搜索任务
     tasks, err := store.SearchTasks(keyword)
     if err != nil {
         cli.PrintError("搜索失败: %v", err)
@@ -82,14 +81,32 @@ func deleteByKeyword(keyword string) {
     }
 
     // 显示搜索结果
-    fmt.Printf("\n找到 %d 个匹配的任务:\n\n", len(tasks))
+    fmt.Printf("\n找到 %d 个匹配的任务:\n", len(tasks))
+    fmt.Println(strings.Repeat("-", 60))
     for i, task := range tasks {
-        fmt.Printf("[%d] ", i+1)
-        cli.PrintTask(task, false)
+        status := "未完成"
+        if task.Status == "completed" {
+            status = "已完成"
+        }
+        
+        fmt.Printf("选项 [%d] | 任务ID: %d | %s | %s\n", 
+            i+1, task.ID, status, task.Title)
+        
+        if task.Description != "" {
+            fmt.Printf("         | 描述: %s\n", task.Description)
+        }
+        
+        priorityText := fmt.Sprintf("优先级%d", task.Priority)
+        fmt.Printf("         | 分类: %s | %s\n", task.Category, priorityText)
+        
+        if i < len(tasks)-1 {
+            fmt.Println(strings.Repeat("-", 60))
+        }
     }
-	 
-	// 提示用户选择
-    fmt.Printf("\n请选择要删除的任务 (输入序号 1-%d, 输入 0 取消): ", len(tasks))
+    fmt.Println(strings.Repeat("-", 60))
+
+    // 提示用户选择
+    fmt.Printf("\n请输入选项序号 (1-%d) 来删除任务，输入 0 取消: ", len(tasks))
     reader := bufio.NewReader(os.Stdin)
     input, _ := reader.ReadString('\n')
     input = strings.TrimSpace(input)
@@ -102,7 +119,7 @@ func deleteByKeyword(keyword string) {
     }
 
     if choice == 0 {
-        fmt.Println("已取消")
+        fmt.Println("已取消删除")
         return
     }
 
@@ -112,12 +129,14 @@ func deleteByKeyword(keyword string) {
     // 二次确认
     if !skipConfirm {
         fmt.Println("\n您选择删除的任务:")
+        fmt.Println(strings.Repeat("=", 60))
         cli.PrintTask(selectedTask, true)
-        fmt.Printf("\n确定要删除这个任务吗？(y/N): ")
+        fmt.Println(strings.Repeat("=", 60))
+        fmt.Printf("\n确定要删除任务 ID:%d 吗？(y/N): ", selectedTask.ID)
         response, _ := reader.ReadString('\n')
         response = strings.TrimSpace(strings.ToLower(response))
         if response != "y" && response != "yes" {
-            fmt.Println("已取消")
+            fmt.Println("已取消删除")
             return
         }
     }
@@ -128,11 +147,11 @@ func deleteByKeyword(keyword string) {
         return
     }
 
-    cli.PrintSuccess("任务 %d 已删除", selectedTask.ID)
+    cli.PrintSuccess("任务 ID:%d 已成功删除", selectedTask.ID)
 }
 
 func init() {
-	rootCmd.AddCommand(deleteCmd)
+    rootCmd.AddCommand(deleteCmd)
 
-	deleteCmd.Flags().BoolVarP(&skipConfirm, "yes", "y", false, "跳过确认")
+    deleteCmd.Flags().BoolVarP(&skipConfirm, "yes", "y", false, "跳过确认")
 }

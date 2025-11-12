@@ -233,7 +233,7 @@ func (t *TodoTools) getAllTasks(arguments string) (string, error) {
 		}
 	}
 
-	tasks, err := t.storage.GetAllTasks(args.Status, args.Category)
+	tasks, err := t.storage.GetAllTasks(args.Status, args.Category, "")
 	if err != nil {
 		return "", err
 	}

@@ -122,54 +122,68 @@ func (s *Storage) GetTask(id int64) (*models.Task, error) {
 }
 
 // GetAllTasks 获取所有任务
-func (s *Storage) GetAllTasks(status models.TaskStatus, category models.TaskCategory) ([]*models.Task, error) {
-	query := `
-	SELECT id, title, description, status, category, priority,
-	       created_at, updated_at, completed_at
-	FROM tasks WHERE 1=1
-	`
-	args := []interface{}{}
+func (s *Storage) GetAllTasks(status models.TaskStatus, category models.TaskCategory, sortBy string) ([]*models.Task, error) {
+    query := `
+    SELECT id, title, description, status, category, priority,
+           created_at, updated_at, completed_at
+    FROM tasks WHERE 1=1
+    `
+    args := []interface{}{}
 
-	if status != "" {
-		query += " AND status = ?"
-		args = append(args, status)
-	}
+    if status != "" {
+        query += " AND status = ?"
+        args = append(args, status)
+    }
 
-	if category != "" {
-		query += " AND category = ?"
-		args = append(args, category)
-	}
+    if category != "" {
+        query += " AND category = ?"
+        args = append(args, category)
+    }
 
-	query += " ORDER BY priority DESC, created_at DESC"
+    // 动态排序
+    switch sortBy {
+    case "priority":
+        // 优先级从高到低(4->1),创建时间从新到旧
+        query += " ORDER BY priority DESC, created_at DESC"
+    case "created_at":
+        // 创建时间从新到旧
+        query += " ORDER BY created_at DESC"
+    case "updated_at":
+        // 更新时间从新到旧
+        query += " ORDER BY updated_at DESC"
+    default:
+        // 默认排序:优先级降序,创建时间降序
+        query += " ORDER BY priority DESC, created_at DESC"
+    }
 
-	rows, err := s.db.Query(query, args...)
-	if err != nil {
-		return nil, fmt.Errorf("failed to query tasks: %w", err)
-	}
-	defer rows.Close()
+    rows, err := s.db.Query(query, args...)
+    if err != nil {
+        return nil, fmt.Errorf("failed to query tasks: %w", err)
+    }
+    defer rows.Close()
 
-	var tasks []*models.Task
-	for rows.Next() {
-		var task models.Task
-		var completedAt sql.NullTime
+    var tasks []*models.Task
+    for rows.Next() {
+        var task models.Task
+        var completedAt sql.NullTime
 
-		err := rows.Scan(
-			&task.ID, &task.Title, &task.Description, &task.Status,
-			&task.Category, &task.Priority, &task.CreatedAt,
-			&task.UpdatedAt, &completedAt,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to scan task: %w", err)
-		}
+        err := rows.Scan(
+            &task.ID, &task.Title, &task.Description, &task.Status,
+            &task.Category, &task.Priority, &task.CreatedAt,
+            &task.UpdatedAt, &completedAt,
+        )
+        if err != nil {
+            return nil, fmt.Errorf("failed to scan task: %w", err)
+        }
 
-		if completedAt.Valid {
-			task.CompletedAt = &completedAt.Time
-		}
+        if completedAt.Valid {
+            task.CompletedAt = &completedAt.Time
+        }
 
-		tasks = append(tasks, &task)
-	}
+        tasks = append(tasks, &task)
+    }
 
-	return tasks, nil
+    return tasks, nil
 }
 
 // UpdateTask 更新任务
